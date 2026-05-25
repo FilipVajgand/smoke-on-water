@@ -2,10 +2,10 @@ precision highp float;
 
 varying vec3 vColor;
 varying vec4 vRandom;
-varying float vInfluence;
+varying float vMaskReveal;
 
 uniform float uTime;
-uniform float uSmoothness;
+uniform float uPearlMaskReveal;
 uniform sampler2D uMatcap;
 
 float blendSoftLight(float base, float blend) {
@@ -90,10 +90,8 @@ void main() {
   pearl.y *= 1.4;
   pearl = hsv2rgb(pearl);
   pearl *= mix(0.82, 1.0, glass);
-  pearl += vec3(0.22, 0.3, 0.36) * rim * pow(vInfluence, 1.5) * 0.08;
-  pearl += vec3(0.22, 0.32, 0.42) * pow(vInfluence, 1.4) * 0.1;
 
   float edge = smoothstep(1.0, 0.82, r2);
-  float revealAlpha = smoothstep(0.02, 0.18, vInfluence);
-  gl_FragColor = vec4(pearl, edge * 0.96 * revealAlpha);
+  float reveal = mix(1.0, vMaskReveal, uPearlMaskReveal);
+  gl_FragColor = vec4(pearl, edge * 0.96 * reveal);
 }

@@ -149,19 +149,9 @@ void main() {
   vec2 screenUv = pos.xy / uViewport + 0.5;
   vec2 fluid = texture2D(uFluidVelocity, screenUv).xy;
   float rawMask = texture2D(uFluidMask, screenUv).r;
-  float fluidMask = smoothstep(0.015, 0.52, rawMask);
-
-  vec2 flowDir = normalize(fluid + vec2(0.0001));
-  vec2 flowNormal = vec2(-flowDir.y, flowDir.x);
-  float side = randoms.y * 2.0 - 1.0;
-  float fizzy = pow(hash(target.xy * 0.017 + randoms.xy * 31.0), 3.0);
-  float curlDrift = sin(target.x * 0.031 + target.y * 0.047 + uTime * 5.4 + randoms.z * 12.0);
 
   vec3 flow = vec3(fluid.xy, 0.0);
-  pos += flow * 0.00026 * uHz * uMouseStrength * uFlowToScreen * rawMask;
-  pos.xy += flowNormal * side * length(fluid) * 0.00022 * uHz * uFlowToScreen * fluidMask;
-  pos.xy += flowNormal * curlDrift * uSeparation * 0.0021 * uHz * fluidMask * (0.35 + fizzy);
-  pos.z += (randoms.z - 0.5) * length(fluid) * 0.00042 * uHz * uFlowToScreen * fluidMask;
+  pos += flow * 0.0001 * uHz * uMouseStrength * rawMask;
 
   gl_FragColor = vec4(pos, current.w);
 }

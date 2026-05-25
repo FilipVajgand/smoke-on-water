@@ -5,16 +5,17 @@ import { PearlBubbleEffect } from "./effects/pearl/PearlBubbleEffect.js";
 import "./styles.css";
 
 const effect = new PearlBubbleEffect(document.querySelector("#pearl-canvas"), {
-  maxParticles: 65536,
+  maxParticles: EFFECT_DEFAULTS.maxParticles,
   sampleStep: EFFECT_DEFAULTS.density,
   size: EFFECT_DEFAULTS.size,
   separation: EFFECT_DEFAULTS.separation,
   cursorArea: EFFECT_DEFAULTS.cursorArea,
-  smoke: EFFECT_DEFAULTS.smoke,
-  smoothness: EFFECT_DEFAULTS.smoothness,
+  imageWarp: EFFECT_DEFAULTS.imageWarp,
+  imageFade: EFFECT_DEFAULTS.imageFade,
+  arcGlow: EFFECT_DEFAULTS.arcGlow,
+  pearlMaskReveal: EFFECT_DEFAULTS.pearlMaskReveal,
   pulseScale: EFFECT_DEFAULTS.pulseScale,
   glowScale: EFFECT_DEFAULTS.glowScale,
-  filterOverlay: EFFECT_DEFAULTS.filterOverlay,
   debug: false,
 });
 

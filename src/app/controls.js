@@ -3,41 +3,16 @@ export { bindControls };
 function bindControls({ controlsPanel, controlsToggle, debugLabels, defaults, effect }) {
   syncControls(defaults);
 
-  document.querySelector("#density").addEventListener("input", (event) => {
-    effect.setDensity(event.target.value);
-  });
-
-  document.querySelector("#size").addEventListener("input", (event) => {
-    effect.setSize(event.target.value);
-  });
-
-  document.querySelector("#separation").addEventListener("input", (event) => {
-    effect.setSeparation(event.target.value);
-  });
-
-  document.querySelector("#cursor-area").addEventListener("input", (event) => {
-    effect.setCursorArea(event.target.value);
-  });
-
-  document.querySelector("#smoke").addEventListener("input", (event) => {
-    effect.setSmoke(event.target.value);
-  });
-
-  document.querySelector("#smoothness").addEventListener("input", (event) => {
-    effect.setSmoothness(event.target.value);
-  });
-
-  document.querySelector("#pulse-scale").addEventListener("input", (event) => {
-    effect.setPulseScale(event.target.value);
-  });
-
-  document.querySelector("#glow-scale").addEventListener("input", (event) => {
-    effect.setGlowScale(event.target.value);
-  });
-
-  document.querySelector("#filter-overlay").addEventListener("change", (event) => {
-    effect.setFilterOverlay(event.target.checked);
-  });
+  bindRange("#density", effect.setDensity.bind(effect));
+  bindRange("#size", effect.setSize.bind(effect));
+  bindRange("#separation", effect.setSeparation.bind(effect));
+  bindRange("#cursor-area", effect.setCursorArea.bind(effect));
+  bindRange("#pulse-scale", effect.setPulseScale.bind(effect));
+  bindRange("#glow-scale", effect.setGlowScale.bind(effect));
+  bindToggle("#image-warp", effect.setImageWarp.bind(effect));
+  bindToggle("#image-fade", effect.setImageFade.bind(effect));
+  bindToggle("#arc-glow", effect.setArcGlow.bind(effect));
+  bindToggle("#pearl-mask-reveal", effect.setPearlMaskReveal.bind(effect));
 
   document.querySelector("#debug").addEventListener("change", (event) => {
     effect.setDebug(event.target.checked);
@@ -70,10 +45,23 @@ function syncControls(defaults) {
   document.querySelector("#size").value = defaults.size;
   document.querySelector("#separation").value = defaults.separation;
   document.querySelector("#cursor-area").value = defaults.cursorArea;
-  document.querySelector("#smoke").value = defaults.smoke;
-  document.querySelector("#smoothness").value = defaults.smoothness;
+  document.querySelector("#image-warp").checked = defaults.imageWarp;
+  document.querySelector("#image-fade").checked = defaults.imageFade;
+  document.querySelector("#arc-glow").checked = defaults.arcGlow;
+  document.querySelector("#pearl-mask-reveal").checked = defaults.pearlMaskReveal;
   document.querySelector("#pulse-scale").value = defaults.pulseScale;
   document.querySelector("#glow-scale").value = defaults.glowScale;
-  document.querySelector("#filter-overlay").checked = defaults.filterOverlay;
   document.querySelector("#debug").checked = false;
+}
+
+function bindRange(selector, callback) {
+  document.querySelector(selector).addEventListener("input", (event) => {
+    callback(event.target.value);
+  });
+}
+
+function bindToggle(selector, callback) {
+  document.querySelector(selector).addEventListener("change", (event) => {
+    callback(event.target.checked);
+  });
 }

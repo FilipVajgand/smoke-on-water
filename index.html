@@ -26,46 +26,61 @@
         <input id="image-file" type="file" accept="image/*,video/*" />
       </div>
 
-      <label class="toggle">
-        <span>Filter</span>
-        <input id="filter-overlay" type="checkbox" checked />
-      </label>
-      <label class="slider">
-        <span>Density</span>
-        <input id="density" type="range" min="2" max="10" step="1" value="4" />
-      </label>
-      <label class="slider">
-        <span>Size</span>
-        <input id="size" type="range" min="1" max="9" step="0.05" value="3.8" />
-      </label>
-      <label class="slider">
-        <span>Spread</span>
-        <input id="separation" type="range" min="30" max="150" step="1" value="72" />
-      </label>
-      <label class="slider">
-        <span>Cursor</span>
-        <input id="cursor-area" type="range" min="0.01" max="2.4" step="0.01" value="0.05" />
-      </label>
-      <label class="slider">
-        <span>Smoke</span>
-        <input id="smoke" type="range" min="0" max="1.6" step="0.01" value="0.52" />
-      </label>
-      <label class="slider">
-        <span>Smooth</span>
-        <input id="smoothness" type="range" min="0" max="2" step="0.01" value="1.2" />
-      </label>
-      <label class="slider">
-        <span>Pulse</span>
-        <input id="pulse-scale" type="range" min="0" max="4" step="0.05" value="1.05" />
-      </label>
-      <label class="slider">
-        <span>Glow</span>
-        <input id="glow-scale" type="range" min="0" max="4" step="0.01" value="1.35" />
-      </label>
-      <label class="toggle">
-        <span>Debug</span>
-        <input id="debug" type="checkbox" />
-      </label>
+      <section class="control-section">
+        <h2>Field</h2>
+        <label class="slider">
+          <span>Density</span>
+          <input id="density" type="range" min="2" max="10" step="1" value="4" />
+        </label>
+        <label class="slider">
+          <span>Size</span>
+          <input id="size" type="range" min="1" max="9" step="0.05" value="3.8" />
+        </label>
+        <label class="slider">
+          <span>Spread</span>
+          <input id="separation" type="range" min="30" max="150" step="1" value="72" />
+        </label>
+        <label class="slider">
+          <span>Cursor</span>
+          <input id="cursor-area" type="range" min="0.01" max="2.4" step="0.01" value="0.05" />
+        </label>
+      </section>
+
+      <section class="control-section">
+        <h2>Source</h2>
+        <label class="toggle">
+          <span>Warp</span>
+          <input id="image-warp" type="checkbox" checked />
+        </label>
+        <label class="toggle">
+          <span>Fade</span>
+          <input id="image-fade" type="checkbox" checked />
+        </label>
+        <label class="toggle">
+          <span>Arc glow</span>
+          <input id="arc-glow" type="checkbox" checked />
+        </label>
+        <label class="slider">
+          <span>Pulse</span>
+          <input id="pulse-scale" type="range" min="0" max="4" step="0.05" value="1.05" />
+        </label>
+        <label class="slider">
+          <span>Glow</span>
+          <input id="glow-scale" type="range" min="0" max="4" step="0.01" value="1.35" />
+        </label>
+      </section>
+
+      <details class="control-section advanced-section">
+        <summary>Advanced</summary>
+        <label class="toggle">
+          <span>Mask pearls</span>
+          <input id="pearl-mask-reveal" type="checkbox" />
+        </label>
+        <label class="toggle">
+          <span>Debug</span>
+          <input id="debug" type="checkbox" />
+        </label>
+      </details>
     </main>
 
     <div id="debug-labels" class="debug-labels" aria-hidden="true" hidden>

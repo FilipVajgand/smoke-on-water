@@ -34,7 +34,7 @@ canvas {
   position: fixed;
   inset: 18px 64px auto auto;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: min(340px, calc(100vw - 36px));
   max-height: calc(100vh - 36px);
   padding: 12px;
@@ -130,6 +130,50 @@ h1 {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0;
+}
+
+.control-section {
+  display: grid;
+  gap: 9px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.control-section h2,
+.advanced-section summary {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.advanced-section {
+  gap: 9px;
+}
+
+.advanced-section summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.advanced-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-section summary::after {
+  content: "+";
+  float: right;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.advanced-section[open] summary::after {
+  content: "-";
+}
+
+.advanced-section[open] {
+  display: grid;
 }
 
 .file-button {
