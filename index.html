@@ -42,12 +42,20 @@
         </label>
         <label class="slider">
           <span>Cursor</span>
-          <input id="cursor-area" type="range" min="0.01" max="2.4" step="0.01" value="0.05" />
+          <input id="cursor-area" type="range" min="0.01" max="2.4" step="0.01" value="0.16" />
         </label>
       </section>
 
       <section class="control-section">
         <h2>Source</h2>
+        <label class="select">
+          <span>Style</span>
+          <select id="effect-style">
+            <option value="silk">Silk</option>
+            <option value="energy" selected>Energy</option>
+            <option value="smoke">Smoke</option>
+          </select>
+        </label>
         <label class="toggle">
           <span>Warp</span>
           <input id="image-warp" type="checkbox" checked />
@@ -55,6 +63,22 @@
         <label class="toggle">
           <span>Fade</span>
           <input id="image-fade" type="checkbox" checked />
+        </label>
+        <label class="slider">
+          <span>Hold</span>
+          <input id="reveal-hold" type="range" min="0.25" max="4" step="0.05" value="0.4" />
+        </label>
+        <label class="slider">
+          <span>Reveal</span>
+          <input id="reveal-depth" type="range" min="0" max="2" step="0.01" value="2" />
+        </label>
+        <label class="slider">
+          <span>Smoke</span>
+          <input id="smoke" type="range" min="0" max="1.6" step="0.01" value="0.24" />
+        </label>
+        <label class="slider">
+          <span>Smooth</span>
+          <input id="smoothness" type="range" min="0" max="8" step="0.01" value="8" />
         </label>
         <label class="toggle">
           <span>Arc glow</span>
@@ -75,6 +99,10 @@
         <label class="toggle">
           <span>Mask pearls</span>
           <input id="pearl-mask-reveal" type="checkbox" />
+        </label>
+        <label class="toggle">
+          <span>Filter</span>
+          <input id="filter-overlay" type="checkbox" />
         </label>
         <label class="toggle">
           <span>Debug</span>

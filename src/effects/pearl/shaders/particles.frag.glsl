@@ -6,6 +6,7 @@ varying float vMaskReveal;
 
 uniform float uTime;
 uniform float uPearlMaskReveal;
+uniform float uEffectStyle;
 uniform sampler2D uMatcap;
 
 float blendSoftLight(float base, float blend) {
@@ -90,8 +91,10 @@ void main() {
   pearl.y *= 1.4;
   pearl = hsv2rgb(pearl);
   pearl *= mix(0.82, 1.0, glass);
+  float silkStyle = smoothstep(1.0, 2.0, uEffectStyle);
+  pearl = mix(pearl, pearl * 0.72 + vec3(0.36, 0.43, 0.48), silkStyle * 0.58);
 
   float edge = smoothstep(1.0, 0.82, r2);
   float reveal = mix(1.0, vMaskReveal, uPearlMaskReveal);
-  gl_FragColor = vec4(pearl, edge * 0.96 * reveal);
+  gl_FragColor = vec4(pearl, edge * mix(0.96, 0.82, silkStyle) * reveal);
 }

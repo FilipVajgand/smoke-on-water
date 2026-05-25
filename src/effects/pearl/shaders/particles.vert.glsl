@@ -4,6 +4,7 @@ attribute vec4 randoms;
 uniform float uTime;
 uniform float uDpr;
 uniform float uSize;
+uniform float uEffectStyle;
 uniform vec2 uViewport;
 uniform sampler2D uPositionTexture;
 uniform sampler2D uFluidVelocity;
@@ -30,6 +31,7 @@ void main() {
   vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
   float shimmer = 1.0 + sin(uTime * 3.0 + randoms.x * 40.0) * 0.08;
   float sizeRandom = mix(0.5, 1.5, randoms.x);
-  gl_PointSize = uSize * uDpr * shimmer * sizeRandom * (900.0 / length(mvPosition.xyz));
+  float silkStyle = smoothstep(1.0, 2.0, uEffectStyle);
+  gl_PointSize = uSize * uDpr * shimmer * sizeRandom * mix(1.0, 0.76, silkStyle) * (900.0 / length(mvPosition.xyz));
   gl_Position = projectionMatrix * mvPosition;
 }

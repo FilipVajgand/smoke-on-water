@@ -30,17 +30,29 @@ export class PearlBubbleEffect {
     this.screenMouse = new THREE.Vector2(0, 0);
     this.fluidMouse = new THREE.Vector2(0, 0);
     this.lastFluidMouse = new THREE.Vector2(0, 0);
+    this.pendingFluidPoints = [];
     this.hasFluidMouse = false;
     this.pulsePoint = new THREE.Vector2(99999, 99999);
     this.pulseDir = new THREE.Vector2(1, 0);
     this.pulseStrength = 0;
-    this.smoothness = THREE.MathUtils.clamp(options.smoothness ?? 0.62, 0, 2);
+    this.smoothness = THREE.MathUtils.clamp(options.smoothness ?? 0.62, 0, 8);
     this.pulseScale = THREE.MathUtils.clamp(options.pulseScale ?? 1, 0, 2);
     this.glowScale = THREE.MathUtils.clamp(options.glowScale ?? 0.92, 0, 2);
+    this.effectStyle = normalizeEffectStyle(options.effectStyle);
+    this.effectStyleAmount = getEffectStyleAmount(this.effectStyle);
     this.imageWarp = options.imageWarp ?? true;
     this.imageFade = options.imageFade ?? true;
+    this.revealDepth = THREE.MathUtils.clamp(options.revealDepth ?? 0.72, 0, 2);
     this.arcGlow = options.arcGlow ?? true;
     this.pearlMaskReveal = options.pearlMaskReveal ?? false;
+    this.filterOverlay = options.filterOverlay ?? true;
+    this.revealHoldBase = {
+      hold: 0.4,
+      densityDissipation: options.densityDissipation ?? 0.97,
+      velocityDissipation: options.velocityDissipation ?? 0.98,
+    };
+    this.revealHold = THREE.MathUtils.clamp(options.revealHold ?? this.revealHoldBase.hold, 0.25, 6);
+    const revealDecay = getRevealDecay(this.revealHold, this.revealHoldBase);
     this.lastFrameAt = performance.now();
     this.baseDynamics = {
       relax: 0.07,
@@ -62,8 +74,8 @@ export class PearlBubbleEffect {
       height: this.height,
       simSize: 256,
       dyeSize: 512,
-      densityDissipation: 0.97,
-      velocityDissipation: 0.98,
+      densityDissipation: revealDecay.densityDissipation,
+      velocityDissipation: revealDecay.velocityDissipation,
       pressureDissipation: 0.8,
       pressureIterations: 5,
       curl: 30,
@@ -97,6 +109,7 @@ export class PearlBubbleEffect {
         uPulseStrength: { value: 0 },
         uPulseScale: { value: this.pulseScale },
         uSmoothness: { value: this.smoothness },
+        uEffectStyle: { value: this.effectStyleAmount },
         uPearlMaskReveal: { value: this.pearlMaskReveal ? 1 : 0 },
         uPositionTexture: { value: makePositionFallbackTexture() },
         uFluidVelocity: { value: this.fluid.velocityTexture },
@@ -123,8 +136,11 @@ export class PearlBubbleEffect {
         uPulseScale: { value: this.pulseScale },
         uSmoothness: { value: this.smoothness },
         uGlowScale: { value: this.glowScale },
+        uEffectStyle: { value: this.effectStyleAmount },
         uImageWarp: { value: this.imageWarp ? 1 : 0 },
         uImageFade: { value: this.imageFade ? 1 : 0 },
+        uRevealDepth: { value: this.revealDepth },
+        uFilterOverlay: { value: this.filterOverlay ? 1 : 0 },
         uFluidVelocity: { value: this.fluid.velocityTexture },
         uFluidMask: { value: this.fluid.maskTexture },
       },
@@ -227,6 +243,16 @@ export class PearlBubbleEffect {
     this.cursorArea = THREE.MathUtils.clamp(Number(value), 0.01, 3);
   }
 
+  setRevealHold(value) {
+    this.revealHold = THREE.MathUtils.clamp(Number(value), 0.25, 6);
+    this.fluid.setDissipation(getRevealDecay(this.revealHold, this.revealHoldBase));
+  }
+
+  setRevealDepth(value) {
+    this.revealDepth = THREE.MathUtils.clamp(Number(value), 0, 2);
+    this.imageMaterial.uniforms.uRevealDepth.value = this.revealDepth;
+  }
+
   setSmoke(value) {
     const smoke = Number(value);
     this.imageMaterial.uniforms.uSmoke.value = smoke;
@@ -234,7 +260,7 @@ export class PearlBubbleEffect {
   }
 
   setSmoothness(value) {
-    this.smoothness = THREE.MathUtils.clamp(Number(value), 0, 2);
+    this.smoothness = THREE.MathUtils.clamp(Number(value), 0, 8);
     this.material.uniforms.uSmoothness.value = this.smoothness;
     this.imageMaterial.uniforms.uSmoothness.value = this.smoothness;
     this.glowMaterial.uniforms.uSmoothness.value = this.smoothness;
@@ -253,6 +279,14 @@ export class PearlBubbleEffect {
     this.glowMaterial.uniforms.uGlowScale.value = this.glowScale;
   }
 
+  setEffectStyle(value) {
+    this.effectStyle = normalizeEffectStyle(value);
+    this.effectStyleAmount = getEffectStyleAmount(this.effectStyle);
+    this.material.uniforms.uEffectStyle.value = this.effectStyleAmount;
+    this.imageMaterial.uniforms.uEffectStyle.value = this.effectStyleAmount;
+    this.applyParticleDynamics();
+  }
+
   setImageWarp(value) {
     this.imageWarp = Boolean(value);
     this.imageMaterial.uniforms.uImageWarp.value = this.imageWarp ? 1 : 0;
@@ -261,6 +295,11 @@ export class PearlBubbleEffect {
   setImageFade(value) {
     this.imageFade = Boolean(value);
     this.imageMaterial.uniforms.uImageFade.value = this.imageFade ? 1 : 0;
+  }
+
+  setFilterOverlay(value) {
+    this.filterOverlay = Boolean(value);
+    this.imageMaterial.uniforms.uFilterOverlay.value = this.filterOverlay ? 1 : 0;
   }
 
   setArcGlow(value) {
@@ -280,10 +319,11 @@ export class PearlBubbleEffect {
   }
 
   applyParticleDynamics() {
-    this.particleSimulation.setSeparation(this.baseDynamics.separation);
-    this.particleSimulation.setRelax(this.baseDynamics.relax);
-    this.particleSimulation.setMouseStrength(this.baseDynamics.mouseStrength);
-    this.particleSimulation.setFlowToScreen(this.baseDynamics.flowToScreen);
+    const style = getEffectDynamics(this.effectStyle);
+    this.particleSimulation.setSeparation(this.baseDynamics.separation * style.separation);
+    this.particleSimulation.setRelax(this.baseDynamics.relax * style.relax);
+    this.particleSimulation.setMouseStrength(this.baseDynamics.mouseStrength * style.mouseStrength);
+    this.particleSimulation.setFlowToScreen(this.baseDynamics.flowToScreen * style.flowToScreen);
   }
 
   resize() {
@@ -391,12 +431,17 @@ export class PearlBubbleEffect {
     const move = (event) => {
       const rect = this.canvas.getBoundingClientRect();
       this.screenMouse.set(event.clientX - rect.left, event.clientY - rect.top);
+      this.pendingFluidPoints.push(this.screenMouse.clone());
+      if (this.pendingFluidPoints.length > 48) {
+        this.pendingFluidPoints.splice(0, this.pendingFluidPoints.length - 48);
+      }
       this.hasPointer = true;
     };
 
     const leave = () => {
       this.hasPointer = false;
       this.hasFluidMouse = false;
+      this.pendingFluidPoints.length = 0;
     };
 
     window.addEventListener("pointermove", move, { passive: true });
@@ -458,7 +503,18 @@ export class PearlBubbleEffect {
   drawFluidSplat() {
     if (!this.hasPointer) return;
 
-    this.fluidMouse.copy(this.screenMouse);
+    if (this.pendingFluidPoints.length === 0) {
+      this.pendingFluidPoints.push(this.screenMouse.clone());
+    }
+
+    const points = this.pendingFluidPoints.splice(0, this.pendingFluidPoints.length);
+    for (const point of points) {
+      this.drawFluidPoint(point);
+    }
+  }
+
+  drawFluidPoint(point) {
+    this.fluidMouse.copy(point);
     if (!this.hasFluidMouse) {
       this.lastFluidMouse.copy(this.fluidMouse);
       this.hasFluidMouse = true;
@@ -469,43 +525,57 @@ export class PearlBubbleEffect {
     const speed = fluidVelocity.length();
     if (speed <= 0.01) return;
 
+    const start = this.lastFluidMouse.clone();
+    const steps = Math.min(8, Math.max(1, Math.ceil(speed / 7)));
+    for (let step = 1; step <= steps; step += 1) {
+      const pointOnSegment = start.clone().lerp(this.fluidMouse, step / steps);
+      const segmentVelocity = pointOnSegment.clone().sub(this.lastFluidMouse);
+      this.drawFluidSegment(pointOnSegment, segmentVelocity, speed);
+      this.lastFluidMouse.copy(pointOnSegment);
+    }
+  }
+
+  drawFluidSegment(point, fluidVelocity, gestureSpeed) {
+    const speed = fluidVelocity.length();
+    if (speed <= 0.01) return;
+
     if (speed > 0.2) {
       this.pulseDir.set(fluidVelocity.x, -fluidVelocity.y).normalize();
-      const centerX = (this.fluidMouse.x + this.lastFluidMouse.x) * 0.5;
-      const centerY = (this.fluidMouse.y + this.lastFluidMouse.y) * 0.5;
+      const centerX = (point.x + this.lastFluidMouse.x) * 0.5;
+      const centerY = (point.y + this.lastFluidMouse.y) * 0.5;
       this.pulsePoint.set(centerX - this.width / 2, this.height / 2 - centerY);
       this.pulseStrength = Math.max(
         this.pulseStrength,
-        THREE.MathUtils.clamp(speed / 11, 0, 1),
+        THREE.MathUtils.clamp(gestureSpeed / 11, 0, 1),
       );
     }
 
     const size = THREE.MathUtils.mapLinear(
-      THREE.MathUtils.clamp(speed, 0, 5),
+      THREE.MathUtils.clamp(gestureSpeed, 0, 5),
       0,
       5,
       0,
       60,
     ) * 0.6;
     const cursorScale = THREE.MathUtils.mapLinear(this.cursorArea, 0.01, 2.4, 0.12, 2.4);
-    const cursorSize = size * cursorScale;
+    const style = getEffectDynamics(this.effectStyle);
+    const cursorSize = size * cursorScale * style.fluidRadius;
     const force = THREE.MathUtils.mapLinear(
-      THREE.MathUtils.clamp(speed, 0, 15),
+      THREE.MathUtils.clamp(gestureSpeed, 0, 15),
       0,
       15,
       0,
       10,
-    );
+    ) * style.fluidForce;
 
     this.fluid.drawInput(
-      this.fluidMouse.x,
-      this.fluidMouse.y,
+      point.x,
+      point.y,
       fluidVelocity.x * force,
       fluidVelocity.y * force,
-      new THREE.Color(0xffffff),
+      new THREE.Color(style.density, style.density, style.density),
       cursorSize,
     );
-    this.lastFluidMouse.copy(this.fluidMouse);
   }
 
   createDebugOverlay() {
@@ -555,4 +625,59 @@ export class PearlBubbleEffect {
       material.uniforms.uMask.value = this.fluid.maskTexture;
     }
   }
+}
+
+function getRevealDecay(hold, base) {
+  const ratio = base.hold / Math.max(0.001, hold);
+  return {
+    densityDissipation: Math.pow(base.densityDissipation, ratio),
+    velocityDissipation: Math.pow(base.velocityDissipation, ratio),
+  };
+}
+
+function normalizeEffectStyle(value) {
+  if (value === "smoke" || value === "energy" || value === "silk") return value;
+  return "silk";
+}
+
+function getEffectStyleAmount(style) {
+  if (style === "silk") return 2;
+  if (style === "energy") return 1;
+  return 0;
+}
+
+function getEffectDynamics(style) {
+  if (style === "silk") {
+    return {
+      separation: 0.25,
+      relax: 2.6,
+      mouseStrength: 0.08,
+      flowToScreen: 0.1,
+      fluidRadius: 0.9,
+      fluidForce: 0.08,
+      density: 1,
+    };
+  }
+
+  if (style === "energy") {
+    return {
+      separation: 0.74,
+      relax: 1,
+      mouseStrength: 0.86,
+      flowToScreen: 1.35,
+      fluidRadius: 0.86,
+      fluidForce: 0.68,
+      density: 0.74,
+    };
+  }
+
+  return {
+    separation: 1,
+    relax: 1,
+    mouseStrength: 1,
+    flowToScreen: 1.15,
+    fluidRadius: 1,
+    fluidForce: 1,
+    density: 1,
+  };
 }

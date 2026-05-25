@@ -66,6 +66,15 @@ export class FluidSimulation {
     this.materials.splat.uniforms.aspectRatio.value = this.width / this.height;
   }
 
+  setDissipation({ densityDissipation, velocityDissipation }) {
+    if (densityDissipation !== undefined) {
+      this.config.densityDissipation = THREE.MathUtils.clamp(Number(densityDissipation), 0, 1);
+    }
+    if (velocityDissipation !== undefined) {
+      this.config.velocityDissipation = THREE.MathUtils.clamp(Number(velocityDissipation), 0, 1);
+    }
+  }
+
   drawInput(x, y, dx, dy, color, radius = this.config.splatRadius, independent = false) {
     this.tmpPoint.set(x / this.width, 1 - y / this.height);
     const now = performance.now();

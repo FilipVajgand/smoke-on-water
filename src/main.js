@@ -10,12 +10,18 @@ const effect = new PearlBubbleEffect(document.querySelector("#pearl-canvas"), {
   size: EFFECT_DEFAULTS.size,
   separation: EFFECT_DEFAULTS.separation,
   cursorArea: EFFECT_DEFAULTS.cursorArea,
+  effectStyle: EFFECT_DEFAULTS.effectStyle,
   imageWarp: EFFECT_DEFAULTS.imageWarp,
   imageFade: EFFECT_DEFAULTS.imageFade,
+  revealHold: EFFECT_DEFAULTS.revealHold,
+  revealDepth: EFFECT_DEFAULTS.revealDepth,
+  smoke: EFFECT_DEFAULTS.smoke,
+  smoothness: EFFECT_DEFAULTS.smoothness,
   arcGlow: EFFECT_DEFAULTS.arcGlow,
   pearlMaskReveal: EFFECT_DEFAULTS.pearlMaskReveal,
   pulseScale: EFFECT_DEFAULTS.pulseScale,
   glowScale: EFFECT_DEFAULTS.glowScale,
+  filterOverlay: EFFECT_DEFAULTS.filterOverlay,
   debug: false,
 });
 
