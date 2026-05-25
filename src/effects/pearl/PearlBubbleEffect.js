@@ -35,9 +35,14 @@ export class PearlBubbleEffect {
     this.pulsePoint = new THREE.Vector2(99999, 99999);
     this.pulseDir = new THREE.Vector2(1, 0);
     this.pulseStrength = 0;
+    this.lastFluidSegmentAt = -Infinity;
+    this.energyTrailColor = new THREE.Color();
+    this.energyHeadColor = new THREE.Color();
+    this.glowColor = new THREE.Color(options.glowColor ?? "#8eefff");
     this.smoothness = THREE.MathUtils.clamp(options.smoothness ?? 0.62, 0, 8);
-    this.pulseScale = THREE.MathUtils.clamp(options.pulseScale ?? 1, 0, 2);
-    this.glowScale = THREE.MathUtils.clamp(options.glowScale ?? 0.92, 0, 2);
+    this.pulseScale = THREE.MathUtils.clamp(options.pulseScale ?? 1, 0, 4);
+    this.glowScale = THREE.MathUtils.clamp(options.glowScale ?? 0.92, 0, 4);
+    this.glowOpacity = THREE.MathUtils.clamp(options.glowOpacity ?? 1, 0, 2);
     this.effectStyle = normalizeEffectStyle(options.effectStyle);
     this.effectStyleAmount = getEffectStyleAmount(this.effectStyle);
     this.imageWarp = options.imageWarp ?? true;
@@ -110,6 +115,7 @@ export class PearlBubbleEffect {
         uPulseScale: { value: this.pulseScale },
         uSmoothness: { value: this.smoothness },
         uEffectStyle: { value: this.effectStyleAmount },
+        uArcGlow: { value: this.arcGlow ? 1 : 0 },
         uPearlMaskReveal: { value: this.pearlMaskReveal ? 1 : 0 },
         uPositionTexture: { value: makePositionFallbackTexture() },
         uFluidVelocity: { value: this.fluid.velocityTexture },
@@ -136,6 +142,9 @@ export class PearlBubbleEffect {
         uPulseScale: { value: this.pulseScale },
         uSmoothness: { value: this.smoothness },
         uGlowScale: { value: this.glowScale },
+        uGlowOpacity: { value: this.glowOpacity },
+        uGlowColor: { value: this.glowColor.clone() },
+        uArcGlow: { value: this.arcGlow ? 1 : 0 },
         uEffectStyle: { value: this.effectStyleAmount },
         uImageWarp: { value: this.imageWarp ? 1 : 0 },
         uImageFade: { value: this.imageFade ? 1 : 0 },
@@ -143,6 +152,7 @@ export class PearlBubbleEffect {
         uFilterOverlay: { value: this.filterOverlay ? 1 : 0 },
         uFluidVelocity: { value: this.fluid.velocityTexture },
         uFluidMask: { value: this.fluid.maskTexture },
+        uFluidEnergy: { value: this.fluid.energyTexture },
       },
     });
 
@@ -164,9 +174,12 @@ export class PearlBubbleEffect {
         uPulseScale: { value: this.pulseScale },
         uSmoothness: { value: this.smoothness },
         uGlowScale: { value: this.glowScale },
+        uGlowOpacity: { value: this.glowOpacity },
+        uGlowColor: { value: this.glowColor.clone() },
         uArcGlow: { value: this.arcGlow ? 1 : 0 },
         uFluidVelocity: { value: this.fluid.velocityTexture },
         uFluidMask: { value: this.fluid.maskTexture },
+        uFluidEnergy: { value: this.fluid.energyTexture },
       },
     });
 
@@ -279,6 +292,18 @@ export class PearlBubbleEffect {
     this.glowMaterial.uniforms.uGlowScale.value = this.glowScale;
   }
 
+  setGlowOpacity(value) {
+    this.glowOpacity = THREE.MathUtils.clamp(Number(value), 0, 2);
+    this.imageMaterial.uniforms.uGlowOpacity.value = this.glowOpacity;
+    this.glowMaterial.uniforms.uGlowOpacity.value = this.glowOpacity;
+  }
+
+  setGlowColor(value) {
+    this.glowColor.set(value || "#8eefff");
+    this.imageMaterial.uniforms.uGlowColor.value.copy(this.glowColor);
+    this.glowMaterial.uniforms.uGlowColor.value.copy(this.glowColor);
+  }
+
   setEffectStyle(value) {
     this.effectStyle = normalizeEffectStyle(value);
     this.effectStyleAmount = getEffectStyleAmount(this.effectStyle);
@@ -304,6 +329,8 @@ export class PearlBubbleEffect {
 
   setArcGlow(value) {
     this.arcGlow = Boolean(value);
+    this.material.uniforms.uArcGlow.value = this.arcGlow ? 1 : 0;
+    this.imageMaterial.uniforms.uArcGlow.value = this.arcGlow ? 1 : 0;
     this.glowMaterial.uniforms.uArcGlow.value = this.arcGlow ? 1 : 0;
     if (this.glowMesh) this.glowMesh.visible = this.arcGlow;
   }
@@ -420,7 +447,7 @@ export class PearlBubbleEffect {
 
     const glowGeometry = new THREE.PlaneGeometry(this.frame.width, this.frame.height, 1, 1);
     this.glowMesh = new THREE.Mesh(glowGeometry, this.glowMaterial);
-    this.glowMesh.scale.set(1.08, 1.08, 1);
+    this.glowMesh.scale.set(1, 1, 1);
     this.glowMesh.position.z = -20;
     this.glowMesh.renderOrder = 3;
     this.glowMesh.visible = this.arcGlow;
@@ -482,6 +509,7 @@ export class PearlBubbleEffect {
     imageUniforms.uTime.value = time;
     imageUniforms.uFluidVelocity.value = this.fluid.velocityTexture;
     imageUniforms.uFluidMask.value = this.fluid.maskTexture;
+    imageUniforms.uFluidEnergy.value = this.fluid.energyTexture;
     imageUniforms.uPulsePoint.value.copy(this.pulsePoint);
     imageUniforms.uPulseDir.value.copy(this.pulseDir);
     imageUniforms.uPulseStrength.value = this.pulseStrength;
@@ -491,13 +519,14 @@ export class PearlBubbleEffect {
     this.glowMaterial.uniforms.uPulseStrength.value = this.pulseStrength;
     this.glowMaterial.uniforms.uFluidVelocity.value = this.fluid.velocityTexture;
     this.glowMaterial.uniforms.uFluidMask.value = this.fluid.maskTexture;
+    this.glowMaterial.uniforms.uFluidEnergy.value = this.fluid.energyTexture;
     this.updateDebugOverlay();
 
     this.renderer.setRenderTarget(null);
     this.renderer.setViewport(0, 0, this.width, this.height);
     this.renderer.setScissorTest(false);
     this.renderer.render(this.scene, this.camera);
-    this.pulseStrength *= Math.pow(0.88, delta * 60);
+    this.pulseStrength *= Math.pow(0.9, delta * 60);
   }
 
   drawFluidSplat() {
@@ -530,24 +559,25 @@ export class PearlBubbleEffect {
     for (let step = 1; step <= steps; step += 1) {
       const pointOnSegment = start.clone().lerp(this.fluidMouse, step / steps);
       const segmentVelocity = pointOnSegment.clone().sub(this.lastFluidMouse);
-      this.drawFluidSegment(pointOnSegment, segmentVelocity, speed);
+      this.drawFluidSegment(pointOnSegment, segmentVelocity, speed, step === steps);
       this.lastFluidMouse.copy(pointOnSegment);
     }
   }
 
-  drawFluidSegment(point, fluidVelocity, gestureSpeed) {
+  drawFluidSegment(point, fluidVelocity, gestureSpeed, isTrailHead = false) {
     const speed = fluidVelocity.length();
     if (speed <= 0.01) return;
 
-    if (speed > 0.2) {
+    const now = performance.now();
+    const startsNewStroke = now - this.lastFluidSegmentAt > 180;
+    this.lastFluidSegmentAt = now;
+
+    if (speed > 0.2 && startsNewStroke) {
       this.pulseDir.set(fluidVelocity.x, -fluidVelocity.y).normalize();
       const centerX = (point.x + this.lastFluidMouse.x) * 0.5;
       const centerY = (point.y + this.lastFluidMouse.y) * 0.5;
       this.pulsePoint.set(centerX - this.width / 2, this.height / 2 - centerY);
-      this.pulseStrength = Math.max(
-        this.pulseStrength,
-        THREE.MathUtils.clamp(gestureSpeed / 11, 0, 1),
-      );
+      this.pulseStrength = THREE.MathUtils.clamp(gestureSpeed / 10, 0, 1);
     }
 
     const size = THREE.MathUtils.mapLinear(
@@ -576,6 +606,31 @@ export class PearlBubbleEffect {
       new THREE.Color(style.density, style.density, style.density),
       cursorSize,
     );
+
+    const energy = THREE.MathUtils.clamp(gestureSpeed / 11, 0, 1);
+    if (energy > 0.05) {
+      const energyPower = this.arcGlow ? this.pulseScale * this.glowScale : 0;
+      const power = energy * energyPower;
+      this.energyTrailColor.copy(this.glowColor).multiplyScalar(power * 0.62);
+      this.energyHeadColor.copy(this.glowColor).lerp({ r: 1, g: 1, b: 1 }, 0.42).multiplyScalar(power * 10.5);
+      this.fluid.drawEnergySegment(
+        this.lastFluidMouse.x,
+        this.lastFluidMouse.y,
+        point.x,
+        point.y,
+        this.energyTrailColor,
+        Math.max(2, cursorSize * 0.18),
+      );
+      if (isTrailHead) {
+        this.fluid.drawEnergy(
+          point.x,
+          point.y,
+          this.energyHeadColor,
+          Math.max(4, cursorSize * 0.64),
+          true,
+        );
+      }
+    }
   }
 
   createDebugOverlay() {
@@ -590,6 +645,7 @@ export class PearlBubbleEffect {
         uniforms: {
           uVelocity: { value: this.fluid.velocityTexture },
           uMask: { value: this.fluid.maskTexture },
+          uEnergy: { value: this.fluid.energyTexture },
           uMode: { value: mode },
           uOpacity: { value: 0.94 },
         },
@@ -623,6 +679,7 @@ export class PearlBubbleEffect {
     for (const material of this.debugMaterials) {
       material.uniforms.uVelocity.value = this.fluid.velocityTexture;
       material.uniforms.uMask.value = this.fluid.maskTexture;
+      material.uniforms.uEnergy.value = this.fluid.energyTexture;
     }
   }
 }

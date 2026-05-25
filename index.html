@@ -42,7 +42,7 @@
         </label>
         <label class="slider">
           <span>Cursor</span>
-          <input id="cursor-area" type="range" min="0.01" max="2.4" step="0.01" value="0.16" />
+          <input id="cursor-area" type="range" min="0.01" max="2.4" step="0.01" value="0.24" />
         </label>
       </section>
 
@@ -74,7 +74,7 @@
         </label>
         <label class="slider">
           <span>Smoke</span>
-          <input id="smoke" type="range" min="0" max="1.6" step="0.01" value="0.24" />
+          <input id="smoke" type="range" min="0" max="1.6" step="0.01" value="0.16" />
         </label>
         <label class="slider">
           <span>Smooth</span>
@@ -85,12 +85,20 @@
           <input id="arc-glow" type="checkbox" checked />
         </label>
         <label class="slider">
-          <span>Pulse</span>
-          <input id="pulse-scale" type="range" min="0" max="4" step="0.05" value="1.05" />
+          <span>Arc power</span>
+          <input id="pulse-scale" type="range" min="0" max="4" step="0.05" value="1.8" />
         </label>
         <label class="slider">
           <span>Glow</span>
-          <input id="glow-scale" type="range" min="0" max="4" step="0.01" value="1.35" />
+          <input id="glow-scale" type="range" min="0" max="4" step="0.01" value="1" />
+        </label>
+        <label class="slider">
+          <span>Opacity</span>
+          <input id="glow-opacity" type="range" min="0" max="2" step="0.01" value="1" />
+        </label>
+        <label class="color-control">
+          <span>Color</span>
+          <input id="glow-color" type="color" value="#8eefff" aria-label="Glow color" />
         </label>
       </section>
 
@@ -114,7 +122,7 @@
     <div id="debug-labels" class="debug-labels" aria-hidden="true" hidden>
       <span>mask</span>
       <span>velocity</span>
-      <span>reveal</span>
+      <span>energy</span>
     </div>
 
     <script type="module" src="/src/main.js"></script>

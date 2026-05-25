@@ -194,7 +194,8 @@ h1 {
 
 .slider,
 .toggle,
-.select {
+.select,
+.color-control {
   display: grid;
   grid-template-columns: 62px 1fr;
   align-items: center;
@@ -214,6 +215,26 @@ input[type="checkbox"] {
   height: 16px;
   margin: 0;
   accent-color: #f4efe6;
+}
+
+input[type="color"] {
+  justify-self: start;
+  width: 42px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 3px;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 5px;
 }
 
 select {

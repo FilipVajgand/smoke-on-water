@@ -21,6 +21,8 @@ const effect = new PearlBubbleEffect(document.querySelector("#pearl-canvas"), {
   pearlMaskReveal: EFFECT_DEFAULTS.pearlMaskReveal,
   pulseScale: EFFECT_DEFAULTS.pulseScale,
   glowScale: EFFECT_DEFAULTS.glowScale,
+  glowOpacity: EFFECT_DEFAULTS.glowOpacity,
+  glowColor: EFFECT_DEFAULTS.glowColor,
   filterOverlay: EFFECT_DEFAULTS.filterOverlay,
   debug: false,
 });

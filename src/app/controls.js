@@ -13,6 +13,8 @@ function bindControls({ controlsPanel, controlsToggle, debugLabels, defaults, ef
   bindRange("#smoothness", effect.setSmoothness.bind(effect));
   bindRange("#pulse-scale", effect.setPulseScale.bind(effect));
   bindRange("#glow-scale", effect.setGlowScale.bind(effect));
+  bindRange("#glow-opacity", effect.setGlowOpacity.bind(effect));
+  bindColor("#glow-color", effect.setGlowColor.bind(effect));
   bindSelect("#effect-style", effect.setEffectStyle.bind(effect));
   bindToggle("#image-warp", effect.setImageWarp.bind(effect));
   bindToggle("#image-fade", effect.setImageFade.bind(effect));
@@ -63,6 +65,8 @@ function syncControls(defaults) {
   document.querySelector("#filter-overlay").checked = defaults.filterOverlay;
   document.querySelector("#pulse-scale").value = defaults.pulseScale;
   document.querySelector("#glow-scale").value = defaults.glowScale;
+  document.querySelector("#glow-opacity").value = defaults.glowOpacity;
+  document.querySelector("#glow-color").value = defaults.glowColor;
   document.querySelector("#debug").checked = false;
 }
 
@@ -81,5 +85,11 @@ function bindSelect(selector, callback) {
 function bindToggle(selector, callback) {
   document.querySelector(selector).addEventListener("change", (event) => {
     callback(event.target.checked);
+  });
+}
+
+function bindColor(selector, callback) {
+  document.querySelector(selector).addEventListener("input", (event) => {
+    callback(event.target.value);
   });
 }

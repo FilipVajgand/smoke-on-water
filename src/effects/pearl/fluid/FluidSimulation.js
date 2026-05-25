@@ -33,6 +33,7 @@ export class FluidSimulation {
 
     this.velocity = createDoubleTarget(this.simSize, this.simSize, THREE.LinearFilter);
     this.density = createDoubleTarget(this.dyeSize, this.dyeSize, THREE.LinearFilter);
+    this.energy = createDoubleTarget(this.dyeSize, this.dyeSize, THREE.LinearFilter);
     this.pressure = createDoubleTarget(this.simSize, this.simSize, THREE.NearestFilter);
     this.divergence = createTarget(this.simSize, this.simSize, THREE.NearestFilter);
     this.curl = createTarget(this.simSize, this.simSize, THREE.NearestFilter);
@@ -46,6 +47,8 @@ export class FluidSimulation {
     this.clearTarget(this.velocity.write);
     this.clearTarget(this.density.read);
     this.clearTarget(this.density.write);
+    this.clearTarget(this.energy.read);
+    this.clearTarget(this.energy.write);
     this.clearTarget(this.pressure.read);
     this.clearTarget(this.pressure.write);
     this.clearTarget(this.divergence);
@@ -58,6 +61,10 @@ export class FluidSimulation {
 
   get maskTexture() {
     return this.density.read.texture;
+  }
+
+  get energyTexture() {
+    return this.energy.read.texture;
   }
 
   setSize(width, height) {
@@ -106,6 +113,41 @@ export class FluidSimulation {
     this.density.swap();
 
     this.canRender = 1;
+  }
+
+  drawEnergy(x, y, color, radius = this.config.splatRadius, independent = true) {
+    this.tmpPoint.set(x / this.width, 1 - y / this.height);
+
+    const splat = this.materials.splat.uniforms;
+    if (independent) {
+      splat.prevPoint.value.copy(this.tmpPoint);
+    } else {
+      splat.prevPoint.value.copy(splat.point.value);
+    }
+
+    splat.point.value.copy(this.tmpPoint);
+    splat.radius.value = radius / 200;
+    splat.aspectRatio.value = this.width / this.height;
+    splat.canRender.value = this.canRender;
+    splat.uTarget.value = this.energy.read.texture;
+    splat.color.value.set(color.r, color.g, color.b);
+    splat.uAdd.value = 1;
+    this.render(this.materials.splat, this.energy.write);
+    this.energy.swap();
+  }
+
+  drawEnergySegment(fromX, fromY, toX, toY, color, radius = this.config.splatRadius) {
+    const splat = this.materials.splat.uniforms;
+    splat.prevPoint.value.set(fromX / this.width, 1 - fromY / this.height);
+    splat.point.value.set(toX / this.width, 1 - toY / this.height);
+    splat.radius.value = radius / 200;
+    splat.aspectRatio.value = this.width / this.height;
+    splat.canRender.value = this.canRender;
+    splat.uTarget.value = this.energy.read.texture;
+    splat.color.value.set(color.r, color.g, color.b);
+    splat.uAdd.value = 1;
+    this.render(this.materials.splat, this.energy.write);
+    this.energy.swap();
   }
 
   step(delta) {
@@ -172,6 +214,13 @@ export class FluidSimulation {
     this.materials.advection.uniforms.dt.value = dt;
     this.render(this.materials.advection, this.density.write);
     this.density.swap();
+
+    this.materials.advection.uniforms.uVelocity.value = this.velocity.read.texture;
+    this.materials.advection.uniforms.uSource.value = this.energy.read.texture;
+    this.materials.advection.uniforms.dissipation.value = normalizedDecay(0.8, hz);
+    this.materials.advection.uniforms.dt.value = dt;
+    this.render(this.materials.advection, this.energy.write);
+    this.energy.swap();
   }
 
   createMaterials() {
