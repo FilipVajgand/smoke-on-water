@@ -97,7 +97,9 @@ void main() {
   float hot = pow(clamp(coreAmount, 0.0, 1.0), 0.52) * hotDissolve;
   float sparkleNoise = noise(screenUv * uViewport * 0.32 + fluid * 0.001 + uTime * 4.2);
   float sparkle = smoothstep(0.72, 1.0, sparkleNoise + hot * 0.38) * hot;
+  float opacityOverdrive = smoothstep(1.0, 4.0, uGlowOpacity);
   float glowControl = uGlowScale * uGlowOpacity * uArcGlow;
+  float alphaControl = uGlowScale * (uGlowOpacity + opacityOverdrive * 3.0) * uArcGlow;
   vec3 glowTint = max(uGlowColor, vec3(0.0));
   vec3 coolGlow = mix(glowTint, vec3(0.58, 0.94, 1.0), 0.22);
   vec3 hotGlow = mix(glowTint, vec3(1.0), 0.68);
@@ -109,12 +111,12 @@ void main() {
   color *= shimmer * glowControl;
 
   float alpha = (haloAmount * 0.01 + coreAmount * 0.46 + hot * 0.44 + sparkle * 0.22) *
-    flow * glowControl;
+    flow * alphaControl;
   float punch = smoothstep(0.06, 0.32, hot + coreAmount * 0.35);
   color *= flow * mix(0.5, 1.1, punch);
   color += mix(coolGlow, vec3(0.72, 0.95, 1.0), 0.42) * pow(punch, 2.4) * 0.46 * flow * glowControl;
   color += coolGlow * frontArc * glowControl * 0.62;
   color += hotGlow * pow(frontArc, 1.35) * glowControl * 1.28;
-  float finalAlpha = clamp(alpha + punch * 0.28 * flow * glowControl + frontArc * glowControl * 0.26, 0.0, 1.0);
+  float finalAlpha = clamp(alpha + punch * 0.28 * flow * alphaControl + frontArc * alphaControl * 0.26, 0.0, 1.0);
   gl_FragColor = vec4(color * 1.18, finalAlpha);
 }

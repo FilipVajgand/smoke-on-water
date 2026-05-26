@@ -43,7 +43,7 @@ export class PearlBubbleEffect {
     this.smoothness = THREE.MathUtils.clamp(options.smoothness ?? 0.62, 0, 8);
     this.pulseScale = THREE.MathUtils.clamp(options.pulseScale ?? 1, 0, 4);
     this.glowScale = THREE.MathUtils.clamp(options.glowScale ?? 0.92, 0, 4);
-    this.glowOpacity = THREE.MathUtils.clamp(options.glowOpacity ?? 1, 0, 2);
+    this.glowOpacity = THREE.MathUtils.clamp(options.glowOpacity ?? 1, 0, 4);
     this.effectStyle = normalizeEffectStyle(options.effectStyle);
     this.effectStyleAmount = getEffectStyleAmount(this.effectStyle);
     this.imageWarp = options.imageWarp ?? true;
@@ -301,7 +301,7 @@ export class PearlBubbleEffect {
   }
 
   setGlowOpacity(value) {
-    this.glowOpacity = THREE.MathUtils.clamp(Number(value), 0, 2);
+    this.glowOpacity = THREE.MathUtils.clamp(Number(value), 0, 4);
     this.imageMaterial.uniforms.uGlowOpacity.value = this.glowOpacity;
     this.glowMaterial.uniforms.uGlowOpacity.value = this.glowOpacity;
   }

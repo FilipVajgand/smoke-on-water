@@ -1,4 +1,4 @@
-export const DEFAULT_IMAGE = "/city-traffic.mp4";
+export const DEFAULT_IMAGE = "/space-night-sky.mp4";
 
 export const EFFECT_DEFAULTS = {
   maxParticles: 262144,

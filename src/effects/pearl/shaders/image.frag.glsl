@@ -178,6 +178,8 @@ void main() {
 
   float glow = smoothstep(0.018, 0.18, smokeReveal) * (0.25 + path * 0.55);
   float glowControl = uGlowScale * uGlowOpacity;
+  float opacityOverdrive = smoothstep(1.0, 4.0, uGlowOpacity);
+  float alphaGlowControl = uGlowScale * (uGlowOpacity + opacityOverdrive * 2.4);
   vec3 glowTint = max(uGlowColor, vec3(0.0));
   vec3 coolGlow = mix(glowTint, vec3(0.72, 0.96, 1.0), 0.24);
   vec3 hotGlow = mix(glowTint, vec3(1.0), 0.64);
@@ -263,6 +265,6 @@ void main() {
   float fadeMask = mix(baseFadeMask, max(baseFadeMask, silkRevealFade), silkStyle) * revealTexture;
   float alpha = clamp(1.0 - fadeMask * uRevealDepth * uImageFade, 0.0, 1.0);
   alpha = mix(alpha, max(alpha, 0.18), silkStyle);
-  alpha = max(alpha, (energyBody * 0.025 + energyGlowAmount * 0.015 + energyHot * 0.055 + energyCore * 0.04) * glowControl);
+  alpha = max(alpha, (energyBody * 0.025 + energyGlowAmount * 0.015 + energyHot * 0.055 + energyCore * 0.04) * alphaGlowControl);
   gl_FragColor = vec4(color, alpha);
 }
