@@ -44,6 +44,7 @@ export class PearlBubbleEffect {
     this.pulseScale = THREE.MathUtils.clamp(options.pulseScale ?? 1, 0, 4);
     this.glowScale = THREE.MathUtils.clamp(options.glowScale ?? 0.92, 0, 4);
     this.glowOpacity = THREE.MathUtils.clamp(options.glowOpacity ?? 1, 0, 4);
+    this.pearlTint = THREE.MathUtils.clamp(options.pearlTint ?? 0, 0, 2);
     this.effectStyle = normalizeEffectStyle(options.effectStyle);
     this.effectStyleAmount = getEffectStyleAmount(this.effectStyle);
     this.imageWarp = options.imageWarp ?? true;
@@ -114,7 +115,9 @@ export class PearlBubbleEffect {
         uTime: { value: 0 },
         uDpr: { value: 1 },
         uSize: { value: options.size ?? 9 },
+        uPearlTint: { value: this.pearlTint },
         uViewport: { value: new THREE.Vector2(1, 1) },
+        uFrameSize: { value: new THREE.Vector2(1, 1) },
         uPulsePoint: { value: this.pulsePoint.clone() },
         uPulseDir: { value: this.pulseDir.clone() },
         uPulseStrength: { value: 0 },
@@ -147,6 +150,7 @@ export class PearlBubbleEffect {
         uPulseStrength: { value: 0 },
         uPulseScale: { value: this.pulseScale },
         uSmoothness: { value: this.smoothness },
+        uPearlTint: { value: this.pearlTint },
         uGlowScale: { value: this.glowScale },
         uGlowOpacity: { value: this.glowOpacity },
         uGlowColor: { value: this.glowColor.clone() },
@@ -253,6 +257,12 @@ export class PearlBubbleEffect {
 
   setSize(value) {
     this.material.uniforms.uSize.value = Number(value);
+  }
+
+  setPearlTint(value) {
+    this.pearlTint = THREE.MathUtils.clamp(Number(value), 0, 2);
+    this.material.uniforms.uPearlTint.value = this.pearlTint;
+    this.imageMaterial.uniforms.uPearlTint.value = this.pearlTint;
   }
 
   setSeparation(value) {
@@ -387,6 +397,10 @@ export class PearlBubbleEffect {
 
   rebuild() {
     this.frame = getImageFrame(this.image, this.width, this.height);
+    this.material.uniforms.uFrameSize.value.set(
+      this.frame.width,
+      this.frame.height,
+    );
     this.imageMaterial.uniforms.uFrameSize.value.set(
       this.frame.width,
       this.frame.height,

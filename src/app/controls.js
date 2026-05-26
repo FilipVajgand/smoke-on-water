@@ -5,6 +5,7 @@ function bindControls({ controlsPanel, controlsToggle, debugLabels, defaults, ef
 
   bindRange("#density", effect.setDensity.bind(effect));
   bindRange("#size", effect.setSize.bind(effect));
+  bindRange("#pearl-tint", effect.setPearlTint.bind(effect));
   bindRange("#separation", effect.setSeparation.bind(effect));
   bindRange("#cursor-area", effect.setCursorArea.bind(effect));
   bindRange("#reveal-hold", effect.setRevealHold.bind(effect));
@@ -51,6 +52,7 @@ function bindControls({ controlsPanel, controlsToggle, debugLabels, defaults, ef
 function syncControls(defaults) {
   document.querySelector("#density").value = defaults.density;
   document.querySelector("#size").value = defaults.size;
+  document.querySelector("#pearl-tint").value = defaults.pearlTint;
   document.querySelector("#separation").value = defaults.separation;
   document.querySelector("#cursor-area").value = defaults.cursorArea;
   document.querySelector("#effect-style").value = defaults.effectStyle;

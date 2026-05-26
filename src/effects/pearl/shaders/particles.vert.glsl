@@ -6,6 +6,7 @@ uniform float uDpr;
 uniform float uSize;
 uniform float uEffectStyle;
 uniform vec2 uViewport;
+uniform vec2 uFrameSize;
 uniform sampler2D uPositionTexture;
 uniform sampler2D uFluidVelocity;
 uniform sampler2D uFluidMask;
@@ -13,6 +14,8 @@ uniform sampler2D uFluidMask;
 varying vec3 vColor;
 varying vec4 vRandom;
 varying float vMaskReveal;
+varying vec2 vWorldPosition;
+varying float vPointWorldSize;
 
 void main() {
   vec3 p = texture2D(uPositionTexture, position.xy).xyz;
@@ -33,5 +36,7 @@ void main() {
   float sizeRandom = mix(0.5, 1.5, randoms.x);
   float silkStyle = smoothstep(1.0, 2.0, uEffectStyle);
   gl_PointSize = uSize * uDpr * shimmer * sizeRandom * mix(1.0, 0.76, silkStyle) * (900.0 / length(mvPosition.xyz));
+  vWorldPosition = p.xy;
+  vPointWorldSize = gl_PointSize / uDpr;
   gl_Position = projectionMatrix * mvPosition;
 }

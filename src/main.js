@@ -8,6 +8,7 @@ const effect = new PearlBubbleEffect(document.querySelector("#pearl-canvas"), {
   maxParticles: EFFECT_DEFAULTS.maxParticles,
   sampleStep: EFFECT_DEFAULTS.density,
   size: EFFECT_DEFAULTS.size,
+  pearlTint: EFFECT_DEFAULTS.pearlTint,
   separation: EFFECT_DEFAULTS.separation,
   cursorArea: EFFECT_DEFAULTS.cursorArea,
   effectStyle: EFFECT_DEFAULTS.effectStyle,

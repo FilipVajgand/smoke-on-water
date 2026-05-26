@@ -1,9 +1,10 @@
-export const DEFAULT_IMAGE = "/space-night-sky.mp4";
+export const DEFAULT_IMAGE = "/subtle-starfield.mp4";
 
 export const EFFECT_DEFAULTS = {
   maxParticles: 262144,
   density: 4,
   size: 3.8,
+  pearlTint: 1.25,
   separation: 72,
   cursorArea: 0.24,
   effectStyle: "energy",

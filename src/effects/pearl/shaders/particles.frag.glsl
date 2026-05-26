@@ -3,10 +3,14 @@ precision highp float;
 varying vec3 vColor;
 varying vec4 vRandom;
 varying float vMaskReveal;
+varying vec2 vWorldPosition;
+varying float vPointWorldSize;
 
 uniform float uTime;
 uniform float uPearlMaskReveal;
+uniform float uPearlTint;
 uniform float uEffectStyle;
+uniform vec2 uFrameSize;
 uniform sampler2D uMatcap;
 
 float blendSoftLight(float base, float blend) {
@@ -58,11 +62,30 @@ vec2 rotateUv(vec2 uv, float angle) {
   return mat2(c, -s, s, c) * p + 0.5;
 }
 
+vec3 auroraPalette(float seed) {
+  vec3 cyan = vec3(0.1, 0.88, 1.0);
+  vec3 blue = vec3(0.18, 0.34, 1.0);
+  vec3 violet = vec3(0.88, 0.25, 1.0);
+  vec3 gold = vec3(1.0, 0.78, 0.42);
+  vec3 cool = mix(cyan, blue, smoothstep(0.08, 0.58, seed));
+  vec3 warm = mix(violet, gold, smoothstep(0.68, 1.0, seed));
+  return mix(cool, warm, smoothstep(0.48, 0.92, seed));
+}
+
 void main() {
   vec2 uv = vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y);
   vec2 p = uv * 2.0 - 1.0;
   float r2 = dot(p, p);
   if (r2 > 1.0) discard;
+  vec2 fragmentWorld = vWorldPosition + vec2(
+    gl_PointCoord.x - 0.5,
+    0.5 - gl_PointCoord.y
+  ) * vPointWorldSize;
+  vec2 halfFrame = uFrameSize * 0.5;
+  if (
+    abs(fragmentWorld.x) > halfFrame.x ||
+    abs(fragmentWorld.y) > halfFrame.y
+  ) discard;
 
   float z = sqrt(1.0 - r2);
   vec3 normal = normalize(vec3(p, z));
@@ -84,8 +107,17 @@ void main() {
   vec3 sourceMatcap = texture2D(uMatcap, matcapUv).rgb * 1.2;
   vec3 matcap = mix(proceduralMatcap, sourceMatcap, 0.82);
 
-  vec3 pearl = blendSoftLight(vColor, matcap, 0.8);
+  float lightness = dot(vColor, vec3(0.2126, 0.7152, 0.0722));
+  float darkSource = 1.0 - smoothstep(0.06, 0.32, lightness);
+  float tint = clamp(uPearlTint, 0.0, 2.0);
+  vec3 palette = auroraPalette(fract(vRandom.x * 0.72 + vRandom.y * 0.31 + vRandom.z * 0.47));
+  vec3 liftedColor = mix(vColor, palette * mix(0.44, 1.05, darkSource), clamp(tint, 0.0, 1.0) * darkSource);
+  liftedColor = mix(liftedColor, palette * 0.92, clamp(tint - 1.0, 0.0, 1.0) * 0.38);
+  liftedColor = max(liftedColor, vec3(0.04));
+
+  vec3 pearl = blendSoftLight(liftedColor, matcap, 0.8);
   pearl = blendOverlay(pearl, matcap, 0.2);
+  pearl += palette * darkSource * tint * glass * 0.055;
   pearl += 0.05;
   pearl = rgb2hsv(pearl);
   pearl.y *= 1.4;

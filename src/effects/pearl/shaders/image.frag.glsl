@@ -10,6 +10,7 @@ uniform vec2 uPulseDir;
 uniform float uPulseStrength;
 uniform float uPulseScale;
 uniform float uSmoothness;
+uniform float uPearlTint;
 uniform float uGlowScale;
 uniform float uGlowOpacity;
 uniform vec3 uGlowColor;
@@ -150,6 +151,18 @@ void main() {
 
   vec2 imageUv = vUv + offset;
   vec3 color = texture2D(uImage, imageUv).rgb * 1.08;
+  float sourceLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  float sourceDarkness = 1.0 - smoothstep(0.05, 0.28, sourceLuma);
+  float revealTintAmount = clamp(uPearlTint, 0.0, 2.0) * sourceDarkness;
+  float paletteSeed = fbm(vUv * 2.4 + vec2(liquid * 0.08, smoke * 0.06));
+  vec3 revealCyan = vec3(0.06, 0.78, 1.0);
+  vec3 revealViolet = vec3(0.78, 0.16, 1.0);
+  vec3 revealGold = vec3(1.0, 0.72, 0.36);
+  vec3 revealPalette = mix(revealCyan, revealViolet, smoothstep(0.24, 0.86, paletteSeed));
+  revealPalette = mix(revealPalette, revealGold, smoothstep(0.82, 1.0, paletteSeed) * 0.32);
+  float revealTintMask = smoothstep(0.05, 0.58, rawFluidMask) * (0.24 + smoothPath * 0.58);
+  color = mix(color, max(color, revealPalette * 0.58), revealTintMask * revealTintAmount * 0.34);
+  color += revealPalette * revealTintMask * revealTintAmount * 0.018;
   float chromaMask = max(path, directionalPulse * 0.22) * uImageWarp * mix(1.0, 0.54, energyStyle) * mix(1.0, 0.52, silkStyle);
   vec3 chromaA = texture2D(uImage, imageUv + tangent * 0.0035 * chromaMask).rgb;
   vec3 chromaB = texture2D(uImage, imageUv - tangent * 0.0035 * chromaMask).rgb;
