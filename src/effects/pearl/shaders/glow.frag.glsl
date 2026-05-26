@@ -2,6 +2,10 @@ precision highp float;
 
 uniform vec2 uViewport;
 uniform float uTime;
+uniform vec2 uPulsePoint;
+uniform vec2 uPulseDir;
+uniform float uPulseStrength;
+uniform float uPulseScale;
 uniform float uGlowScale;
 uniform float uGlowOpacity;
 uniform vec3 uGlowColor;
@@ -47,6 +51,8 @@ void main() {
   float trailEdge = smoothstep(0.02, 0.16, length(maskGradient) * 2.6);
   float maskContain = smoothstep(0.045, 0.24, mask);
   float trailInterior = smoothstep(0.14, 0.68, mask) * (1.0 - trailEdge * 0.82);
+  float centerLine = sqrt(smoothstep(0.1, 0.64, trailInterior));
+  float centerToEdge = mix(0.16, 1.0, centerLine);
 
   vec2 wide = px * 12.0;
   vec2 wider = px * 24.0;
@@ -67,14 +73,26 @@ void main() {
   float dissolveNoise = noise(screenUv * uViewport * 0.16 + fluid * 0.0015 - uTime * 1.35);
   float centerDissolve = smoothstep(0.018 + dissolveNoise * 0.014, 0.11, rawCore);
   float hotDissolve = smoothstep(0.08 + dissolveNoise * 0.03, 0.28, rawCore);
-  float edgeSuppress = maskContain * (1.0 - trailEdge * 0.72);
+  float edgeSuppress = maskContain * centerToEdge * (1.0 - trailEdge * 0.78);
   float coreAmount = pow(clamp(rawCore * 1.05, 0.0, 1.85), 0.62) * centerDissolve * edgeSuppress;
   float haloAmount = pow(clamp(length(halo) * 0.1, 0.0, 1.0), 2.1) *
-    centerDissolve * mix(0.35, 1.0, trailInterior) * edgeSuppress;
+    centerDissolve * mix(0.12, 1.0, centerLine) * edgeSuppress;
   float reveal = smoothstep(0.04, 0.42, mask);
   float motion = smoothstep(0.02, 0.42, length(fluid) * 0.006);
-  float flow = max(reveal, motion * 0.18) * maskContain;
+  float flow = max(reveal, motion * 0.18) * maskContain * centerToEdge;
   float shimmer = mix(0.88, 1.08, noise(screenUv * uViewport * 0.08 + fluid * 0.002 + uTime * 0.8));
+  vec2 pulseDir = normalize(uPulseDir + vec2(0.0001));
+  vec2 pulseTangent = vec2(-pulseDir.y, pulseDir.x);
+  vec2 pulseRel = vWorld - uPulsePoint;
+  float pulseForward = dot(pulseRel, pulseDir);
+  float pulseSide = dot(pulseRel, pulseTangent);
+  float pulseOuter = smoothstep(58.0, 8.0, length(vec2((pulseForward + 4.0) * 0.92, pulseSide * 1.12)));
+  float pulseInner = smoothstep(34.0, 8.0, length(vec2((pulseForward + 22.0) * 1.08, pulseSide * 1.38)));
+  float frontArc = clamp(pulseOuter - pulseInner * 0.74, 0.0, 1.0);
+  frontArc *= smoothstep(-46.0, -6.0, pulseForward) * smoothstep(26.0, -3.0, pulseForward);
+  float pulseActivation = uPulseStrength * uPulseScale;
+  frontArc *= pulseActivation * maskContain * (1.0 - trailEdge * 0.35) * mix(0.2, 1.0, centerLine);
+  frontArc = smoothstep(0.08, 0.58, frontArc);
 
   float hot = pow(clamp(coreAmount, 0.0, 1.0), 0.52) * hotDissolve;
   float sparkleNoise = noise(screenUv * uViewport * 0.32 + fluid * 0.001 + uTime * 4.2);
@@ -95,6 +113,8 @@ void main() {
   float punch = smoothstep(0.06, 0.32, hot + coreAmount * 0.35);
   color *= flow * mix(0.5, 1.1, punch);
   color += mix(coolGlow, vec3(0.72, 0.95, 1.0), 0.42) * pow(punch, 2.4) * 0.46 * flow * glowControl;
-  float finalAlpha = clamp(alpha + punch * 0.28 * flow * glowControl, 0.0, 1.0);
+  color += coolGlow * frontArc * glowControl * 0.62;
+  color += hotGlow * pow(frontArc, 1.35) * glowControl * 1.28;
+  float finalAlpha = clamp(alpha + punch * 0.28 * flow * glowControl + frontArc * glowControl * 0.26, 0.0, 1.0);
   gl_FragColor = vec4(color * 1.18, finalAlpha);
 }

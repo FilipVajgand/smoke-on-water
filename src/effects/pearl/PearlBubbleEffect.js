@@ -35,7 +35,8 @@ export class PearlBubbleEffect {
     this.pulsePoint = new THREE.Vector2(99999, 99999);
     this.pulseDir = new THREE.Vector2(1, 0);
     this.pulseStrength = 0;
-    this.lastFluidSegmentAt = -Infinity;
+    this.effectActiveUntil = performance.now() + 1200;
+    this.lastRenderAt = 0;
     this.energyTrailColor = new THREE.Color();
     this.energyHeadColor = new THREE.Color();
     this.glowColor = new THREE.Color(options.glowColor ?? "#8eefff");
@@ -59,6 +60,11 @@ export class PearlBubbleEffect {
     this.revealHold = THREE.MathUtils.clamp(options.revealHold ?? this.revealHoldBase.hold, 0.25, 6);
     const revealDecay = getRevealDecay(this.revealHold, this.revealHoldBase);
     this.lastFrameAt = performance.now();
+    this.maxPixelRatio = options.maxPixelRatio ?? 1.35;
+    this.activeFps = options.activeFps ?? 50;
+    this.idleVideoFps = options.idleVideoFps ?? 24;
+    this.idleImageFps = options.idleImageFps ?? 12;
+    this.isVideoSource = false;
     this.baseDynamics = {
       relax: 0.07,
       mouseStrength: 1,
@@ -69,20 +75,20 @@ export class PearlBubbleEffect {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       alpha: false,
-      antialias: true,
-      powerPreference: "high-performance",
+      antialias: false,
+      powerPreference: "low-power",
     });
     this.renderer.setClearColor(0x050507, 1);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.fluid = new FluidSimulation(this.renderer, {
       width: this.width,
       height: this.height,
-      simSize: 256,
-      dyeSize: 512,
+      simSize: options.fluidSimSize ?? 192,
+      dyeSize: options.fluidDyeSize ?? 384,
       densityDissipation: revealDecay.densityDissipation,
       velocityDissipation: revealDecay.velocityDissipation,
       pressureDissipation: 0.8,
-      pressureIterations: 5,
+      pressureIterations: options.pressureIterations ?? 4,
       curl: 30,
       splatRadius: 5,
     });
@@ -205,6 +211,7 @@ export class PearlBubbleEffect {
   async setImage(src) {
     const media = await loadMedia(src);
     this.image = media.element;
+    this.isVideoSource = media.isVideo;
     if (this.texture) this.texture.dispose();
     this.texture = media.isVideo
       ? new THREE.VideoTexture(this.image)
@@ -216,6 +223,7 @@ export class PearlBubbleEffect {
     this.imageMaterial.uniforms.uImage.value = this.texture;
     this.glowMaterial.uniforms.uImage.value = this.texture;
     this.rebuild();
+    this.markEffectActive(1000);
   }
 
   async setMatcap(src) {
@@ -357,7 +365,7 @@ export class PearlBubbleEffect {
     const rect = this.canvas.getBoundingClientRect();
     this.width = Math.max(1, Math.floor(rect.width));
     this.height = Math.max(1, Math.floor(rect.height));
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
 
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(this.width, this.height, false);
@@ -459,9 +467,10 @@ export class PearlBubbleEffect {
       const rect = this.canvas.getBoundingClientRect();
       this.screenMouse.set(event.clientX - rect.left, event.clientY - rect.top);
       this.pendingFluidPoints.push(this.screenMouse.clone());
-      if (this.pendingFluidPoints.length > 48) {
-        this.pendingFluidPoints.splice(0, this.pendingFluidPoints.length - 48);
+      if (this.pendingFluidPoints.length > 32) {
+        this.pendingFluidPoints.splice(0, this.pendingFluidPoints.length - 32);
       }
+      this.markEffectActive();
       this.hasPointer = true;
     };
 
@@ -471,27 +480,54 @@ export class PearlBubbleEffect {
       this.pendingFluidPoints.length = 0;
     };
 
-    window.addEventListener("pointermove", move, { passive: true });
-    this.canvas.addEventListener("pointerdown", move, { passive: true });
-    this.canvas.addEventListener("pointerleave", leave);
-    window.addEventListener("mousemove", move, { passive: true });
-    this.canvas.addEventListener("mousedown", move, { passive: true });
-    this.canvas.addEventListener("mouseleave", leave);
+    const hasPointerEvents = "PointerEvent" in window;
+    window.addEventListener(hasPointerEvents ? "pointermove" : "mousemove", move, { passive: true });
+    this.canvas.addEventListener(hasPointerEvents ? "pointerdown" : "mousedown", move, { passive: true });
+    this.canvas.addEventListener(hasPointerEvents ? "pointerleave" : "mouseleave", leave);
   }
 
-  animate() {
-    requestAnimationFrame(() => this.animate());
+  markEffectActive(duration = this.getEffectActiveDuration()) {
+    this.effectActiveUntil = Math.max(this.effectActiveUntil, performance.now() + duration);
+  }
+
+  getEffectActiveDuration() {
+    return 2000 + this.revealHold * 2200;
+  }
+
+  isVideoPlaying() {
+    return this.isVideoSource && this.image && !this.image.paused && !this.image.ended;
+  }
+
+  isEffectActive(now) {
+    return this.pendingFluidPoints.length > 0 || this.pulseStrength > 0.002 || now < this.effectActiveUntil;
+  }
+
+  getTargetFps(now) {
+    if (this.isEffectActive(now) || this.debug) return this.activeFps;
+    if (this.isVideoPlaying()) return this.idleVideoFps;
+    return this.idleImageFps;
+  }
+
+  animate(frameTime = performance.now()) {
+    requestAnimationFrame((nextFrameTime) => this.animate(nextFrameTime));
+
+    const now = typeof frameTime === "number" ? frameTime : performance.now();
+    const targetFps = this.getTargetFps(now);
+    if (now - this.lastRenderAt < 1000 / targetFps) return;
+    this.lastRenderAt = now;
 
     const uniforms = this.material.uniforms;
     const imageUniforms = this.imageMaterial.uniforms;
-    const now = performance.now();
     const delta = Math.min(0.05, (now - this.lastFrameAt) * 0.001 || 0.016);
     this.lastFrameAt = now;
     this.drawFluidSplat();
-    this.fluid.step(delta);
+    const effectActive = this.isEffectActive(now) || this.debug;
+    if (effectActive) {
+      this.fluid.step(delta);
+    }
 
     const time = now * 0.001;
-    if (this.particleSimulation.texture) {
+    if (this.particleSimulation.texture && effectActive) {
       this.particleSimulation.step(delta, {
         fluidVelocity: this.fluid.velocityTexture,
         fluidMask: this.fluid.maskTexture,
@@ -526,15 +562,11 @@ export class PearlBubbleEffect {
     this.renderer.setViewport(0, 0, this.width, this.height);
     this.renderer.setScissorTest(false);
     this.renderer.render(this.scene, this.camera);
-    this.pulseStrength *= Math.pow(0.9, delta * 60);
+    this.pulseStrength *= Math.pow(0.91, delta * 60);
   }
 
   drawFluidSplat() {
-    if (!this.hasPointer) return;
-
-    if (this.pendingFluidPoints.length === 0) {
-      this.pendingFluidPoints.push(this.screenMouse.clone());
-    }
+    if (!this.hasPointer || this.pendingFluidPoints.length === 0) return;
 
     const points = this.pendingFluidPoints.splice(0, this.pendingFluidPoints.length);
     for (const point of points) {
@@ -555,7 +587,7 @@ export class PearlBubbleEffect {
     if (speed <= 0.01) return;
 
     const start = this.lastFluidMouse.clone();
-    const steps = Math.min(8, Math.max(1, Math.ceil(speed / 7)));
+    const steps = Math.min(6, Math.max(1, Math.ceil(speed / 8)));
     for (let step = 1; step <= steps; step += 1) {
       const pointOnSegment = start.clone().lerp(this.fluidMouse, step / steps);
       const segmentVelocity = pointOnSegment.clone().sub(this.lastFluidMouse);
@@ -568,16 +600,15 @@ export class PearlBubbleEffect {
     const speed = fluidVelocity.length();
     if (speed <= 0.01) return;
 
-    const now = performance.now();
-    const startsNewStroke = now - this.lastFluidSegmentAt > 180;
-    this.lastFluidSegmentAt = now;
-
-    if (speed > 0.2 && startsNewStroke) {
+    if (speed > 0.2 && isTrailHead) {
       this.pulseDir.set(fluidVelocity.x, -fluidVelocity.y).normalize();
       const centerX = (point.x + this.lastFluidMouse.x) * 0.5;
       const centerY = (point.y + this.lastFluidMouse.y) * 0.5;
       this.pulsePoint.set(centerX - this.width / 2, this.height / 2 - centerY);
-      this.pulseStrength = THREE.MathUtils.clamp(gestureSpeed / 10, 0, 1);
+      this.pulseStrength = Math.max(
+        this.pulseStrength * 0.72,
+        THREE.MathUtils.clamp(gestureSpeed / 24, 0, 0.42),
+      );
     }
 
     const size = THREE.MathUtils.mapLinear(

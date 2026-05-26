@@ -5,6 +5,10 @@ uniform float uTime;
 uniform float uSmoke;
 uniform vec2 uFrameSize;
 uniform vec2 uViewport;
+uniform vec2 uPulsePoint;
+uniform vec2 uPulseDir;
+uniform float uPulseStrength;
+uniform float uPulseScale;
 uniform float uSmoothness;
 uniform float uGlowScale;
 uniform float uGlowOpacity;
@@ -93,8 +97,20 @@ void main() {
   path = mix(path, silkPath, silkStyle * 0.78);
   smoothPath = mix(smoothPath, silkPath, silkStyle * 0.82);
   float fluidEdge = clamp(pow(abs(fluid.x) * 0.014, 2.0), 0.0, 1.0);
-  float directionalPulse = 0.0;
-  float reveal = max(fluidEdge, directionalPulse * 0.78);
+  vec2 pulseDir = normalize(uPulseDir + vec2(0.0001));
+  vec2 pulseTangent = vec2(-pulseDir.y, pulseDir.x);
+  vec2 pulseRel = vWorld - uPulsePoint;
+  float pulseForward = dot(pulseRel, pulseDir);
+  float pulseSide = dot(pulseRel, pulseTangent);
+  float pulseOuter = smoothstep(58.0, 8.0, length(vec2((pulseForward + 4.0) * 0.92, pulseSide * 1.12)));
+  float pulseInner = smoothstep(34.0, 8.0, length(vec2((pulseForward + 22.0) * 1.08, pulseSide * 1.38)));
+  float pulseArc = clamp(pulseOuter - pulseInner * 0.74, 0.0, 1.0);
+  pulseArc *= smoothstep(-46.0, -6.0, pulseForward) * smoothstep(26.0, -3.0, pulseForward);
+  float pulseActivation = uPulseStrength * uPulseScale;
+  float pulseContain = smoothstep(0.08, 0.46, rawFluidMask) * mix(0.25, 1.0, smoothstep(0.14, 0.7, rawFluidMask));
+  float directionalPulse = pulseArc * pulseActivation * uArcGlow * pulseContain;
+  directionalPulse = smoothstep(0.12, 0.6, directionalPulse) * 0.45;
+  float reveal = max(fluidEdge, directionalPulse * 0.12);
   float smokeReveal = max(reveal, smoothPath * mix(smoothness * 0.22, 0.36, ultraSmooth));
   smokeReveal = mix(smokeReveal, max(reveal, smoothPath * 0.42), energyStyle * 0.72);
   smokeReveal = mix(smokeReveal, max(reveal * 0.72, smoothPath * 0.62), silkStyle * 0.88);
@@ -134,14 +150,14 @@ void main() {
 
   vec2 imageUv = vUv + offset;
   vec3 color = texture2D(uImage, imageUv).rgb * 1.08;
-  float chromaMask = max(path, directionalPulse * 0.75) * uImageWarp * mix(1.0, 0.54, energyStyle) * mix(1.0, 0.52, silkStyle);
+  float chromaMask = max(path, directionalPulse * 0.22) * uImageWarp * mix(1.0, 0.54, energyStyle) * mix(1.0, 0.52, silkStyle);
   vec3 chromaA = texture2D(uImage, imageUv + tangent * 0.0035 * chromaMask).rgb;
   vec3 chromaB = texture2D(uImage, imageUv - tangent * 0.0035 * chromaMask).rgb;
   color.r = mix(color.r, chromaA.r, chromaMask * 0.22);
   color.b = mix(color.b, chromaB.b, chromaMask * 0.22);
 
   float styleSmoke = mix(1.0, 0.035, energyStyle) * mix(1.0, 0.04, silkStyle);
-  float smokeInput = smoke + pathMask * mix(mix(0.08, 0.42, smoothness), 0.62, ultraSmooth) + directionalPulse * mix(0.28, 0.42, ultraSmooth);
+  float smokeInput = smoke + pathMask * mix(mix(0.08, 0.42, smoothness), 0.62, ultraSmooth) + directionalPulse * mix(0.04, 0.08, ultraSmooth);
   float smokeShape = smoothstep(
     mix(mix(mix(mix(0.68, 0.24, smoothness), 0.12, ultraSmooth), 0.08, megaSmooth), 0.05, maxSmooth),
     mix(mix(mix(mix(0.78, 1.04, smoothness), 1.16, ultraSmooth), 1.24, megaSmooth), 1.28, maxSmooth),
@@ -150,7 +166,7 @@ void main() {
   float hotSmoke = smoothstep(
     mix(mix(mix(mix(0.72, 0.44, smoothness), 0.34, ultraSmooth), 0.28, megaSmooth), 0.22, maxSmooth),
     mix(mix(mix(mix(0.84, 0.94, smoothness), 1.02, ultraSmooth), 1.08, megaSmooth), 1.12, maxSmooth),
-    liquid + fluidEdge * 0.5 + directionalPulse * 0.34
+    liquid + fluidEdge * 0.5 + directionalPulse * 0.08
   ) * pathMask * uSmoke * mix(1.0, 0.68, maxSmooth) * mix(1.0, 0.32, energyStyle) * mix(1.0, 0.12, silkStyle);
   vec3 haze = vec3(0.08, 0.085, 0.09) * smokeShape * mix(mix(mix(mix(0.08, 0.16, smoothness), 0.22, ultraSmooth), 0.28, megaSmooth), 0.18, maxSmooth);
   color *= mix(1.0, 1.18, smoothstep(0.2, 1.0, length(vUv - 0.5)));
@@ -166,6 +182,8 @@ void main() {
   vec3 coolGlow = mix(glowTint, vec3(0.72, 0.96, 1.0), 0.24);
   vec3 hotGlow = mix(glowTint, vec3(1.0), 0.64);
   color += mix(vec3(0.9, 0.93, 0.96), coolGlow, 0.7) * glow * 0.004 * glowControl;
+  color += coolGlow * directionalPulse * glowControl * 0.012;
+  color += hotGlow * pow(directionalPulse, 1.45) * glowControl * 0.028;
   vec2 glowStep = vec2(2.0) / uViewport;
   float maskLeft = texture2D(uFluidMask, screenUv - vec2(glowStep.x, 0.0)).r;
   float maskRight = texture2D(uFluidMask, screenUv + vec2(glowStep.x, 0.0)).r;
@@ -196,10 +214,12 @@ void main() {
   float energyNoise = noise(screenUv * uViewport * 0.14 + fluid * 0.0012 - uTime * 1.25);
   float energyDissolve = smoothstep(0.018 + energyNoise * 0.014, 0.11, rawEnergyAmount);
   float energyCenter = smoothstep(0.08 + energyNoise * 0.03, 0.28, rawEnergyAmount);
-  float energyGate = energyDissolve * energyMaskContain * (1.0 - flowEdge * 0.56);
+  float energyCenterLine = sqrt(smoothstep(0.1, 0.64, trailInterior));
+  float centerToEdge = mix(0.16, 1.0, energyCenterLine);
+  float energyGate = energyDissolve * energyMaskContain * centerToEdge * (1.0 - flowEdge * 0.68);
   float energyAmount = pow(clamp(length(energySample) * 0.58, 0.0, 2.1), 0.92) * energyGate * uArcGlow;
   float energyGlowAmount = pow(clamp(length(energyGlowSample) * 0.14, 0.0, 1.0), 1.45) * energyGate * uArcGlow;
-  float energyCore = pow(clamp(rawEnergyAmount * 0.96, 0.0, 1.0), 0.52) * energyCenter * energyMaskContain * (1.0 - flowEdge * 0.42) * uArcGlow;
+  float energyCore = pow(clamp(rawEnergyAmount * 0.96, 0.0, 1.0), 0.52) * energyCenter * energyMaskContain * energyCenterLine * (1.0 - flowEdge * 0.58) * uArcGlow;
   float energyBody = energyAmount * smoothstep(0.018, 0.42, smokeReveal) * mix(1.0, 0.5, silkStyle);
   float energyFlow = energyAmount * (0.36 + transientFlow * 0.22);
   float energyHot = pow(clamp(energyCore, 0.0, 1.0), 0.62);
@@ -212,7 +232,8 @@ void main() {
   color += mix(coolGlow, vec3(1.0), 0.26) * energyCore * glowControl * 0.16;
   color += hotGlow * energyHot * glowControl * 0.18;
   float energyTrail = smoothstep(0.08, 0.76, rawFluidMask) *
-    (0.38 + smoothstep(0.005, 0.13, fluidEdge) * 0.45);
+    (0.28 + smoothstep(0.005, 0.13, fluidEdge) * 0.28) *
+    mix(0.08, 1.0, energyCenterLine);
   color += mix(coolGlow, vec3(0.88, 0.94, 1.0), 0.45) * energyTrail * energyAmount * 0.052 * energyStyle * mix(1.0, 1.12, silkStyle) * glowControl;
   color = mix(color, color * 1.04 + vec3(0.08, 0.095, 0.105), smoothPath * silkStyle * 0.22);
 
