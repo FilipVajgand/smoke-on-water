@@ -21,4 +21,14 @@ export const EFFECT_DEFAULTS = {
   glowOpacity: 1.0,
   glowColor: "#8eefff",
   filterOverlay: false,
+  globalComposite: false,
+  globalCompositeLayers: {
+    frost: true,
+    rgb: true,
+    bloom: true,
+    streaks: true,
+    corners: true,
+    grain: true,
+    fluid: true,
+  },
 };

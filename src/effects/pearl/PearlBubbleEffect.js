@@ -13,6 +13,8 @@ import imageFragmentShader from "./shaders/image.frag.glsl?raw";
 import glowFragmentShader from "./shaders/glow.frag.glsl?raw";
 import debugVertexShader from "./shaders/debug.vert.glsl?raw";
 import debugFragmentShader from "./shaders/debug.frag.glsl?raw";
+import postVertexShader from "./shaders/post.vert.glsl?raw";
+import globalCompositeFragmentShader from "./shaders/globalComposite.frag.glsl?raw";
 
 export class PearlBubbleEffect {
   constructor(canvas, options = {}) {
@@ -24,6 +26,7 @@ export class PearlBubbleEffect {
     this.cursorArea = options.cursorArea ?? 1;
     this.width = 1;
     this.height = 1;
+    this.dpr = 1;
     this.frame = { width: 1, height: 1 };
     this.debug = Boolean(options.debug);
     this.hasPointer = false;
@@ -35,6 +38,7 @@ export class PearlBubbleEffect {
     this.pulsePoint = new THREE.Vector2(99999, 99999);
     this.pulseDir = new THREE.Vector2(1, 0);
     this.pulseStrength = 0;
+    this.compositeContact = 0;
     this.effectActiveUntil = performance.now() + 1200;
     this.lastRenderAt = 0;
     this.energyTrailColor = new THREE.Color();
@@ -53,6 +57,11 @@ export class PearlBubbleEffect {
     this.arcGlow = options.arcGlow ?? true;
     this.pearlMaskReveal = options.pearlMaskReveal ?? false;
     this.filterOverlay = options.filterOverlay ?? true;
+    this.globalComposite = options.globalComposite ?? false;
+    this.globalCompositeLayers = {
+      ...DEFAULT_GLOBAL_COMPOSITE_LAYERS,
+      ...(options.globalCompositeLayers || {}),
+    };
     this.revealHoldBase = {
       hold: 0.4,
       densityDissipation: options.densityDissipation ?? 0.97,
@@ -103,6 +112,7 @@ export class PearlBubbleEffect {
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 2000);
     this.camera.position.z = 900;
+    this.createCompositePass();
 
     this.material = new THREE.ShaderMaterial({
       vertexShader,
@@ -320,6 +330,7 @@ export class PearlBubbleEffect {
     this.glowColor.set(value || "#8eefff");
     this.imageMaterial.uniforms.uGlowColor.value.copy(this.glowColor);
     this.glowMaterial.uniforms.uGlowColor.value.copy(this.glowColor);
+    this.compositeMaterial.uniforms.uAccentColor.value.copy(this.glowColor);
   }
 
   setEffectStyle(value) {
@@ -343,6 +354,22 @@ export class PearlBubbleEffect {
   setFilterOverlay(value) {
     this.filterOverlay = Boolean(value);
     this.imageMaterial.uniforms.uFilterOverlay.value = this.filterOverlay ? 1 : 0;
+  }
+
+  setGlobalComposite(value) {
+    this.globalComposite = Boolean(value);
+    this.compositeMaterial.uniforms.uEnabled.value = this.globalComposite ? 1 : 0;
+    if (!this.globalComposite) this.compositeContact = 0;
+    this.markEffectActive(900);
+  }
+
+  setGlobalCompositeLayer(layer, value) {
+    if (!Object.prototype.hasOwnProperty.call(GLOBAL_COMPOSITE_LAYER_UNIFORMS, layer)) return;
+
+    this.globalCompositeLayers[layer] = Boolean(value);
+    this.compositeMaterial.uniforms[GLOBAL_COMPOSITE_LAYER_UNIFORMS[layer]].value =
+      this.globalCompositeLayers[layer] ? 1 : 0;
+    this.markEffectActive(900);
   }
 
   setArcGlow(value) {
@@ -376,6 +403,7 @@ export class PearlBubbleEffect {
     this.width = Math.max(1, Math.floor(rect.width));
     this.height = Math.max(1, Math.floor(rect.height));
     const dpr = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
+    this.dpr = dpr;
 
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(this.width, this.height, false);
@@ -384,6 +412,7 @@ export class PearlBubbleEffect {
     this.imageMaterial.uniforms.uViewport.value.set(this.width, this.height);
     this.glowMaterial.uniforms.uViewport.value.set(this.width, this.height);
     this.fluid.setSize(this.width, this.height);
+    this.resizeCompositeTarget();
 
     this.camera.left = -this.width / 2;
     this.camera.right = this.width / 2;
@@ -519,6 +548,7 @@ export class PearlBubbleEffect {
   getTargetFps(now) {
     if (this.isEffectActive(now) || this.debug) return this.activeFps;
     if (this.isVideoPlaying()) return this.idleVideoFps;
+    if (this.globalComposite) return Math.max(this.idleImageFps, 24);
     return this.idleImageFps;
   }
 
@@ -539,6 +569,14 @@ export class PearlBubbleEffect {
     if (effectActive) {
       this.fluid.step(delta);
     }
+    const contactTarget = this.globalComposite && effectActive ? 1 : 0;
+    const contactRate = contactTarget > this.compositeContact ? 8 : 1.4;
+    this.compositeContact = THREE.MathUtils.damp(
+      this.compositeContact,
+      contactTarget,
+      contactRate,
+      delta,
+    );
 
     const time = now * 0.001;
     if (this.particleSimulation.texture && effectActive) {
@@ -570,13 +608,81 @@ export class PearlBubbleEffect {
     this.glowMaterial.uniforms.uFluidVelocity.value = this.fluid.velocityTexture;
     this.glowMaterial.uniforms.uFluidMask.value = this.fluid.maskTexture;
     this.glowMaterial.uniforms.uFluidEnergy.value = this.fluid.energyTexture;
+    this.compositeMaterial.uniforms.uTime.value = time;
+    this.compositeMaterial.uniforms.uContact.value = this.compositeContact;
+    this.compositeMaterial.uniforms.uFluidVelocity.value = this.fluid.velocityTexture;
+    this.compositeMaterial.uniforms.uFluidMask.value = this.fluid.maskTexture;
     this.updateDebugOverlay();
+    this.renderFrame();
+    this.pulseStrength *= Math.pow(0.91, delta * 60);
+  }
+
+  createCompositePass() {
+    this.compositeTarget = new THREE.WebGLRenderTarget(1, 1, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      type: THREE.UnsignedByteType,
+      depthBuffer: false,
+      stencilBuffer: false,
+    });
+    this.compositeTarget.texture.name = "Pearl global composite";
+    this.compositeTarget.texture.colorSpace = THREE.SRGBColorSpace;
+
+    this.compositeScene = new THREE.Scene();
+    this.compositeCamera = new THREE.Camera();
+    this.compositeMaterial = new THREE.ShaderMaterial({
+      vertexShader: postVertexShader,
+      fragmentShader: globalCompositeFragmentShader,
+      depthTest: false,
+      depthWrite: false,
+      uniforms: {
+        uScene: { value: this.compositeTarget.texture },
+        uFluidVelocity: { value: this.fluid.velocityTexture },
+        uFluidMask: { value: this.fluid.maskTexture },
+        uResolution: { value: new THREE.Vector2(1, 1) },
+        uTime: { value: 0 },
+        uContact: { value: 0 },
+        uAccentColor: { value: this.glowColor.clone() },
+        uEnabled: { value: this.globalComposite ? 1 : 0 },
+        uPostFrost: { value: layerEnabled(this.globalCompositeLayers.frost) },
+        uPostRgb: { value: layerEnabled(this.globalCompositeLayers.rgb) },
+        uPostBloom: { value: layerEnabled(this.globalCompositeLayers.bloom) },
+        uPostStreaks: { value: layerEnabled(this.globalCompositeLayers.streaks) },
+        uPostCorners: { value: layerEnabled(this.globalCompositeLayers.corners) },
+        uPostGrain: { value: layerEnabled(this.globalCompositeLayers.grain) },
+        uPostFluid: { value: layerEnabled(this.globalCompositeLayers.fluid) },
+      },
+    });
+
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.compositeMaterial);
+    this.compositeScene.add(mesh);
+  }
+
+  resizeCompositeTarget() {
+    if (!this.compositeTarget) return;
+
+    const targetWidth = Math.max(1, Math.round(this.width * this.dpr));
+    const targetHeight = Math.max(1, Math.round(this.height * this.dpr));
+    this.compositeTarget.setSize(targetWidth, targetHeight);
+    this.compositeMaterial.uniforms.uResolution.value.set(targetWidth, targetHeight);
+  }
+
+  renderFrame() {
+    this.renderer.setScissorTest(false);
+
+    if (!this.globalComposite) {
+      this.renderer.setRenderTarget(null);
+      this.renderer.setViewport(0, 0, this.width, this.height);
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
+
+    this.renderer.setRenderTarget(this.compositeTarget);
+    this.renderer.render(this.scene, this.camera);
 
     this.renderer.setRenderTarget(null);
     this.renderer.setViewport(0, 0, this.width, this.height);
-    this.renderer.setScissorTest(false);
-    this.renderer.render(this.scene, this.camera);
-    this.pulseStrength *= Math.pow(0.91, delta * 60);
+    this.renderer.render(this.compositeScene, this.compositeCamera);
   }
 
   drawFluidSplat() {
@@ -782,4 +888,28 @@ function getEffectDynamics(style) {
     fluidForce: 1,
     density: 1,
   };
+}
+
+const DEFAULT_GLOBAL_COMPOSITE_LAYERS = {
+  frost: true,
+  rgb: true,
+  bloom: true,
+  streaks: true,
+  corners: true,
+  grain: true,
+  fluid: true,
+};
+
+const GLOBAL_COMPOSITE_LAYER_UNIFORMS = {
+  frost: "uPostFrost",
+  rgb: "uPostRgb",
+  bloom: "uPostBloom",
+  streaks: "uPostStreaks",
+  corners: "uPostCorners",
+  grain: "uPostGrain",
+  fluid: "uPostFluid",
+};
+
+function layerEnabled(value) {
+  return value ? 1 : 0;
 }

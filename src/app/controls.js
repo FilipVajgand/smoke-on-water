@@ -22,6 +22,8 @@ function bindControls({ controlsPanel, controlsToggle, debugLabels, defaults, ef
   bindToggle("#arc-glow", effect.setArcGlow.bind(effect));
   bindToggle("#pearl-mask-reveal", effect.setPearlMaskReveal.bind(effect));
   bindToggle("#filter-overlay", effect.setFilterOverlay.bind(effect));
+  bindToggle("#global-composite", effect.setGlobalComposite.bind(effect));
+  bindGlobalCompositeLayers(effect);
 
   document.querySelector("#debug").addEventListener("change", (event) => {
     effect.setDebug(event.target.checked);
@@ -65,6 +67,8 @@ function syncControls(defaults) {
   document.querySelector("#arc-glow").checked = defaults.arcGlow;
   document.querySelector("#pearl-mask-reveal").checked = defaults.pearlMaskReveal;
   document.querySelector("#filter-overlay").checked = defaults.filterOverlay;
+  document.querySelector("#global-composite").checked = defaults.globalComposite;
+  syncGlobalCompositeLayers(defaults.globalCompositeLayers);
   document.querySelector("#pulse-scale").value = defaults.pulseScale;
   document.querySelector("#glow-scale").value = defaults.glowScale;
   document.querySelector("#glow-opacity").value = defaults.glowOpacity;
@@ -95,3 +99,25 @@ function bindColor(selector, callback) {
     callback(event.target.value);
   });
 }
+
+function bindGlobalCompositeLayers(effect) {
+  Object.entries(GLOBAL_COMPOSITE_LAYER_CONTROLS).forEach(([selector, layer]) => {
+    bindToggle(selector, (checked) => effect.setGlobalCompositeLayer(layer, checked));
+  });
+}
+
+function syncGlobalCompositeLayers(layers) {
+  Object.entries(GLOBAL_COMPOSITE_LAYER_CONTROLS).forEach(([selector, layer]) => {
+    document.querySelector(selector).checked = layers[layer];
+  });
+}
+
+const GLOBAL_COMPOSITE_LAYER_CONTROLS = {
+  "#global-frost": "frost",
+  "#global-rgb": "rgb",
+  "#global-bloom": "bloom",
+  "#global-streaks": "streaks",
+  "#global-corners": "corners",
+  "#global-grain": "grain",
+  "#global-fluid": "fluid",
+};
